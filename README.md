@@ -53,7 +53,7 @@ The contracts are to be deployed and then connected together. The DEPLOYER (EOA)
 9) Deploy `SYNTHFACTORY(SPARTA.address,  wbnb.address, Dao.address)`
 10) Deploy `DAOVAULT(SPARTA.address, Dao.address)`
 11) Deploy `RESERVE(SPARTA.address)`
-12) Set `(router.address, utils.address, bond.address, daoVault.address,poolFactory.address, synthFactory.address, SPReserve.address)` in `DAO`
+12) Set `(router.address, utils.address, bond.address, daoVault.address,poolFactory.address, synthFactory.address, RESERVE.address)` in `DAO`
 13) Set `dao.address` in `SPARTA`
 14) Set  `(router.address, utils.address,synthV.address,Dao.address)` in `RESERVE`
 15 Call `start()` in `RESERVE`
