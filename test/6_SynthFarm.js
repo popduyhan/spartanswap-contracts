@@ -95,7 +95,7 @@ function constructor(accounts) {
                      //deploy token
         Dao = await DAO.new(base.address)     // deploy daoV2
         synthV = await SYNTHVAULT.new(base.address, Dao.address) 
-        utils = await UTILS.new(base.address, base.address, Dao.address) // deploy utilsV2
+        utils = await UTILS.new(base.address, Dao.address) // deploy utilsV2
         router = await ROUTER.new(base.address, wbnb.address, Dao.address) //deploy router
         daoVault = await DAOVAULT.new(base.address, Dao.address);
         bondVault = await BONDVault.new(base.address, Dao.address)  //deploy new bond
@@ -104,15 +104,12 @@ function constructor(accounts) {
         synthFactory = await SYNTHFACTORY.new(base.address,  wbnb.address, Dao.address) 
 
         daoVault = await DAOVAULT.new(base.address, Dao.address);
-        lendRouter = await LENDROUTER.new(base.address);
-
-        lend = await LEND.new(base.address, lendRouter.address);
         SPReserve = await RESERVE.new(base.address) // deploy base 
 
-        await Dao.setGenesisAddresses(router.address, utils.address, lend.address, bond.address, daoVault.address,poolFactory.address, synthFactory.address, SPReserve.address); 
+        await Dao.setGenesisAddresses(router.address, utils.address, bond.address, daoVault.address,poolFactory.address, synthFactory.address, SPReserve.address); 
         await base.changeDAO(Dao.address)  
         await synthV.changeNDAO(Dao.address)  
-        await SPReserve.setIncentiveAddresses(router.address, lend.address,synthV.address,Dao.address );
+        await SPReserve.setIncentiveAddresses(router.address, utils.address,synthV.address,Dao.address );
         await SPReserve.start();
 
         await base.transfer(acc1, _.getBN(_.BN2Str(100000 * _.one)))
