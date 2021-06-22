@@ -110,48 +110,45 @@ contract SynthVault {
     //====================================== HARVEST ========================================//
 
     function harvestAll() external returns (bool) {
-        require(iRESERVE(_DAO().RESERVE()).emissions(), "!EMISSIONS");
-        uint256 _weight;
         for(uint i = 0; i<stakedSynthAssets.length; i++){
             if(isSynthMember[msg.sender][stakedSynthAssets[i]] == true){
-                 uint256 reward = calcCurrentReward(stakedSynthAssets[i],msg.sender);
-                 if(reward > 0 ){
-                 mapMemberSynth_lastTime[msg.sender][stakedSynthAssets[i]] = block.timestamp;
-                 address _poolOUT = iPOOLFACTORY(_DAO().POOLFACTORY()).getPool(iSYNTH(stakedSynthAssets[i]).LayerONE() );
-                 iRESERVE(_DAO().RESERVE()).grantFunds(reward, _poolOUT);
-                 (uint synthReward, ) = iPOOL(_poolOUT).mintSynth(stakedSynthAssets[i], address(this)); 
-                 _weight = iUTILS(_DAO().UTILS()).calcSpotValueInBase(iSYNTH(stakedSynthAssets[i]).LayerONE(), synthReward);
-                 mapMemberSynth_deposit[msg.sender][stakedSynthAssets[i]] += synthReward;
-                 mapMemberSynth_weight[msg.sender][stakedSynthAssets[i]] += _weight;
-                 mapMemberTotal_weight[msg.sender] += _weight;
-                 totalWeight += _weight;
-                 iSYNTH(stakedSynthAssets[i]).realise(_poolOUT);
-                emit MemberHarvests(stakedSynthAssets[i], msg.sender, reward, _weight, totalWeight);
-                 }
-                 
+                uint256 reward = calcCurrentReward(stakedSynthAssets[i],msg.sender);
+                if(reward > 0){
+                    harvest(stakedSynthAssets[i]);
+                } 
             }
         }
         return true;
     }
 
-     function harvestSingle(address synth) external returns (bool) {
+     function harvest(address synth) public {
         require(iSYNTHFACTORY(_DAO().SYNTHFACTORY()).isSynth(synth), "!synth");
         require(iRESERVE(_DAO().RESERVE()).emissions(), "!EMISSIONS");
-        uint256 _weight;
+        uint256 _weight;address _poolOUT;uint synthReward;
         uint256 reward = calcCurrentReward(synth,msg.sender);
         mapMemberSynth_lastTime[msg.sender][synth] = block.timestamp;
-        address _poolOUT = iPOOLFACTORY(_DAO().POOLFACTORY()).getPool(iSYNTH(synth).LayerONE());
-        iRESERVE(_DAO().RESERVE()).grantFunds(reward, _poolOUT);
-        (uint synthReward,) = iPOOL(_poolOUT).mintSynth(synth, address(this));
-        _weight = iUTILS(_DAO().UTILS()).calcSpotValueInBase(iSYNTH(synth).LayerONE(), synthReward);
+        address tokenSynth = iSYNTH(synth).LayerONE();
+         if(tokenSynth == BASE){
+           _poolOUT = iUTILS(_DAO().UTILS()).getDeepestPool();
+         }else{
+           _poolOUT = iPOOLFACTORY(_DAO().POOLFACTORY()).getPool(tokenSynth);
+         }
+           iRESERVE(_DAO().RESERVE()).grantFunds(reward, _poolOUT);
+         if(tokenSynth == BASE){
+            (synthReward,) = iPOOL(_poolOUT).mintBaseSynth(true,address(this));
+            _weight = synthReward;
+          }else{
+            (synthReward,) = iPOOL(_poolOUT).mintTokenSynth(true,address(this));
+            _weight = iUTILS(_DAO().UTILS()).calcSpotValueInBase(tokenSynth, synthReward);
+         }
          mapMemberSynth_deposit[msg.sender][synth] += synthReward;
          mapMemberSynth_weight[msg.sender][synth] += _weight;
-        mapMemberTotal_weight[msg.sender] += _weight;
-        totalWeight += _weight;
-        iSYNTH(synth).realise(_poolOUT);
-        emit MemberHarvests(synth, msg.sender, reward, _weight, totalWeight);
-        return true;
+         mapMemberTotal_weight[msg.sender] += _weight;
+         totalWeight += _weight;
+         iSYNTH(synth).realise(_poolOUT);
+         emit MemberHarvests(synth, msg.sender, reward, _weight, totalWeight);
     }
+
     function calcCurrentReward(address synth, address member) public view returns (uint256 reward){
         require((block.timestamp > mapMemberSynth_lastTime[member][synth]), "DepositTime"); // stops attacks
         uint256 _secondsSinceClaim = block.timestamp - mapMemberSynth_lastTime[member][synth]; // Get time since last claim

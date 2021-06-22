@@ -9,5 +9,6 @@ interface iPOOL {
     function fees() external view returns(uint);
     function volume() external view returns(uint);
     function txCount() external view returns(uint);
-    function mintSynth(address, address) external returns (uint256, uint256);
+    function mintTokenSynth(bool, address) external returns (uint256, uint256);
+    function mintBaseSynth(bool, address) external returns (uint256, uint256);
 }

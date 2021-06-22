@@ -34,22 +34,28 @@ contract SynthFactory {
     //Create a synth asset - only from curated pools
     function createSynth(address token) external returns(address synth){
         require(getSynth(token) == address(0), "CreateErr");
+        if(token != BASE){
         address _pool = iPOOLFACTORY(_DAO().POOLFACTORY()).getPool(token);
         require(iPOOLFACTORY(_DAO().POOLFACTORY()).isCuratedPool(_pool) == true, "!Curated");
+        }
         Synth newSynth; address _token = token;
         if(token == address(0)){_token = WBNB;} // Handle BNB
         newSynth = new Synth(BASE,_token);  
         synth = address(newSynth);
-        addSynth(_token, synth);
+        mapToken_Synth[_token] = synth;
+        arraySynths.push(synth); 
+        isSynth[synth] = true;
         emit CreateSynth(token, synth);
         return synth;
     }
 
-    function addSynth(address _token, address _synth) internal {
-        require(_token != BASE);
-        mapToken_Synth[_token] = _synth;
-        arraySynths.push(_synth); 
+    function addSynth(address token) external onlyDAO {
+        address _synth = getSynth(token);
         isSynth[_synth] = true;
+    }
+    function removeSynth(address token) external onlyDAO {
+        address _synth = getSynth(token);
+        isSynth[_synth] = false;
     }
 
     //======================================HELPERS========================================//

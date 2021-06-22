@@ -4,7 +4,7 @@ import "./Pool.sol";
 import "./iRESERVE.sol"; 
 import "./iPOOLFACTORY.sol";  
 import "./iWBNB.sol";
-
+import "hardhat/console.sol"; 
 contract Router {
 
     address public BASE;
@@ -19,6 +19,7 @@ contract Router {
     uint private arrayFeeSize;
     uint [] private feeArray;
     uint private lastMonth;
+    address public baseSynthPool;
 
     mapping(address=> uint) public mapAddress_30DayDividends;
     mapping(address=> uint) public mapAddress_Past30DayPoolDividends;
@@ -211,40 +212,61 @@ contract Router {
     }
     //=================================================================================//
     //Swap Synths
+    function swapBaseToBaseSynth(uint inputAmount) public returns (uint outputSynth, uint fee){
+              address _pool = baseSynthPool;
+              iBEP20(BASE).transferFrom(msg.sender, _pool, inputAmount); 
+              (outputSynth, fee) = Pool(_pool).mintBaseSynth(true, msg.sender); 
+              getsDividend(_pool, fee);
+         return (outputSynth,fee);
+    }
+    function swapTokenToBaseSynth(uint inputAmount, address fromToken) public payable returns (uint outputSynth, uint fee){
+            address _pool = iPOOLFACTORY(_DAO().POOLFACTORY()).getPool(fromToken);
+            _handleTransferIn(fromToken, inputAmount, _pool);
+            (outputSynth, fee) = Pool(_pool).mintBaseSynth(false, msg.sender); 
+            getsDividend(_pool, fee);
+         return (outputSynth,fee);
+    }
 
-    function swapAssetToSynth(uint inputAmount, address fromToken, address toSynth) public payable returns (uint outputSynth, uint fee){
-         require(fromToken != toSynth);
-         address _synthLayer1 = iSYNTH(toSynth).LayerONE();
-         address _pool = iPOOLFACTORY(_DAO().POOLFACTORY()).getPool(_synthLayer1);
-          if(fromToken != BASE){
-            sellTo(inputAmount, fromToken, address(this));
-            iBEP20(BASE).transfer(_pool, iBEP20(BASE).balanceOf(address(this)));
-          }else {
+    function swapBaseToTokenSynth(uint inputAmount, address toToken) public returns (uint outputSynth, uint fee){
+            address _pool = iPOOLFACTORY(_DAO().POOLFACTORY()).getPool(toToken);
             iBEP20(BASE).transferFrom(msg.sender, _pool, inputAmount); 
-          }
-          (outputSynth, fee) = Pool(_pool).mintSynth(toSynth, msg.sender); 
-          getsDividend(_pool, fee);
+            (outputSynth, fee) = Pool(_pool).mintTokenSynth(true, msg.sender); 
+            getsDividend(_pool, fee);
+         return (outputSynth,fee);
+    }
+
+    function swapTokenToTokenSynth(uint inputAmount, address toToken) public payable returns (uint outputSynth, uint fee){
+           address _pool = iPOOLFACTORY(_DAO().POOLFACTORY()).getPool(toToken);
+           _handleTransferIn(toToken, inputAmount, _pool);
+           (outputSynth, fee) = Pool(_pool).mintTokenSynth(false, msg.sender); 
+           getsDividend(_pool, fee);
          return (outputSynth,fee);
     }
    
-
-    function swapSynthToAsset(uint inputAmount, address fromSynth, address toToken) public returns (uint outputAmount, uint fee){
-        require(fromSynth != toToken);
-        address _synthINLayer1 = iSYNTH(fromSynth).LayerONE();
-        address _poolIN = iPOOLFACTORY(_DAO().POOLFACTORY()).getPool(_synthINLayer1);
-        address _toToken = toToken;
-        if(toToken == address(0)){_toToken = WBNB;} // Handle BNB
-        address _pool = iPOOLFACTORY(_DAO().POOLFACTORY()).getPool(_toToken);
+    function swapBaseSynthToToken(uint inputAmount, address toToken) public returns (uint outputAmount, uint fee){
+        address _poolIN = iPOOLFACTORY(_DAO().POOLFACTORY()).getPool(toToken);
+        address fromSynth = iSYNTHFACTORY(_DAO().SYNTHFACTORY()).getSynth(BASE);
         iBEP20(fromSynth).transferFrom(msg.sender, _poolIN, inputAmount); 
-        if(_toToken != BASE){
-            Pool(_poolIN).burnSynth(fromSynth, address(this)); 
-            iBEP20(BASE).transfer(_pool, iBEP20(BASE).balanceOf(address(this)));
-            (outputAmount, fee) = Pool(_pool).swap(_toToken);
+        if(toToken != BASE){
+            (outputAmount, fee) =  Pool(_poolIN).burnBaseSynth(false, address(this)); 
             _handleTransferOut(toToken, outputAmount, msg.sender);
         }else{
-            (outputAmount, fee) = Pool(_poolIN).burnSynth(fromSynth, msg.sender); 
+            (outputAmount, fee) = Pool(_poolIN).burnBaseSynth(true, msg.sender); 
         }
-            getsDividend(_pool, fee);
+         getsDividend(_poolIN, fee);
+        return (outputAmount, fee);
+    }
+    function swapTokenSynthToToken(uint inputAmount, address toToken) public returns (uint outputAmount, uint fee){
+        address _poolIN = iPOOLFACTORY(_DAO().POOLFACTORY()).getPool(toToken);
+        address fromSynth = iSYNTHFACTORY(_DAO().SYNTHFACTORY()).getSynth(toToken);
+        iBEP20(fromSynth).transferFrom(msg.sender, _poolIN, inputAmount); 
+        if(toToken != BASE){
+            (outputAmount, fee) =  Pool(_poolIN).burnTokenSynth(false, address(this)); 
+            _handleTransferOut(toToken, outputAmount, msg.sender);
+        }else{
+            (outputAmount, fee) = Pool(_poolIN).burnTokenSynth(true, msg.sender); 
+        }
+         getsDividend(_poolIN, fee);
         return (outputAmount, fee);
     }
     
@@ -316,6 +338,9 @@ contract Router {
     }
     function changeEraLength(uint _eraLength) public onlyDAO {	
         eraLength = _eraLength;	
+    }
+    function changeBaseSynthPool(address _newPool) public onlyDAO {	
+        baseSynthPool = _newPool;	
     }
     //==================================Helpers=================================//
     function currentPoolRevenue(address pool) external view returns(uint256) {

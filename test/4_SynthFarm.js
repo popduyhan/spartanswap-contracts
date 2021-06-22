@@ -41,47 +41,30 @@ contract('Test Harvest Synths', function (accounts) {
      addLiquidityTKN1(acc1,_.BN2Str(1500*_.one),  _.BN2Str(60*_.one)); //SPV2
       curatePools()
       createSyntheticBNB()
-      swapLayer1ToSynth(acc0,_.BN2Str(50*_.one))
-      swapLayer1ToSynth(acc2,_.BN2Str(10*_.one))
-      swapLayer1ToSynth(acc1,_.BN2Str(50*_.one))
-    //    swapSynthToLayer1(acc0,_.BN2Str(0.1*_.one) )
-    //    swapSynthToLayer1(acc2,_.BN2Str(0.2*_.one) )
-    //    swapSynthToLayer1(acc1,_.BN2Str(0.3*_.one) )
-         harvestSynth()
-      depositSynthBNB(acc1)
-       depositSynthTKN2(acc1)
-    //   depositSynthTKN3(acc1, _.BN2Str(0.3*_.one))
-    //  depositSynthTKN4(acc1, _.BN2Str(0.3*_.one))
-    //  depositSynthTKN5(acc1, _.BN2Str(0.3*_.one))
+      swapAssetToBaseSynth(acc0,_.BN2Str(50*_.one))
+    //   swapTokenToBaseSynth(acc2,_.BN2Str(10*_.one))
+    //   swapTokenToBaseSynth(acc1,_.BN2Str(50*_.one))
+    // //    swapSynthToLayer1(acc0,_.BN2Str(0.1*_.one) )
+    // //    swapSynthToLayer1(acc2,_.BN2Str(0.2*_.one) )
+    // //    swapSynthToLayer1(acc1,_.BN2Str(0.3*_.one) )
+    //      harvestSynth()
+    //   depositSynthBNB(acc1)
+    //    depositSynthTKN2(acc1)
+    // //   depositSynthTKN3(acc1, _.BN2Str(0.3*_.one))
+    // //  depositSynthTKN4(acc1, _.BN2Str(0.3*_.one))
+    // //  depositSynthTKN5(acc1, _.BN2Str(0.3*_.one))
 
-    //  depositSynthTKN3(acc2, _.BN2Str(0.3*_.one))
-    //  depositSynthTKN4(acc2, _.BN2Str(0.3*_.one))
+    // //  depositSynthTKN3(acc2, _.BN2Str(0.3*_.one))
+    // //  depositSynthTKN4(acc2, _.BN2Str(0.3*_.one))
 
-    //  depositSynthTKN5(acc1, _.BN2Str(0.3*_.one))
+    // //  depositSynthTKN5(acc1, _.BN2Str(0.3*_.one))
 
-    //  depositSynthTKN4(acc1, _.BN2Str(0.3*_.one))
-      realise()
+    // //  depositSynthTKN4(acc1, _.BN2Str(0.3*_.one))
+    //   realise()
   
-    //    harvestSynth()
-       realise()
-       realise()
-       realise()
-       realise()
-       realise()
-       realise()
-       realise()
-       realise()
-       realise()
-       realise()
-       realise()
-       realise()
-       realise()
-       realise()
-       realise()
-       realise()
-       realise()
-       realise()
-
+    // //    harvestSynth()
+    //    realise()
+ 
   
 
     //    Withdraw(1000, acc1);
@@ -190,8 +173,8 @@ async function wrapBNB() {
 }
 async function createPoolWBNB(SPT, token) {
     it("It should deploy BNB Pool", async () => {
-        var _pool = await poolFactory.createPool.call(_.BNB)
-        await poolFactory.createPool(_.BNB)
+        var _pool = await poolFactory.createPool.call(wbnb.address)
+        await poolFactory.createPool(wbnb.address)
         poolWBNB = await POOL.at(_pool)
         //console.log(`Pools: ${poolWBNB.address}`)
         const baseAddr = await poolWBNB.BASE()
@@ -264,8 +247,8 @@ async function createPoolTKN1(SPT, token) {
 }
 async function addLiquidityBNB(acc, b, t) {
     it(`It should addLiquidity BNB from ${acc}`, async () => {
-        let token = _.BNB
-        let tx = await router.addLiquidity(b, t, token, { from: acc, value: t})
+        let token = wbnb.address
+        let tx = await router.addLiquidity(b, t, token, { from: acc})
     })
 }
 async function addLiquidityTKN1(acc, b, t) {
@@ -293,7 +276,7 @@ async function addLiquidityTKN1(acc, b, t) {
 }
 async function curatePools() {
     it("Curate POOls", async () => {
-        await poolFactory.addCuratedPool(_.BNB);
+        await poolFactory.addCuratedPool(wbnb.address);
         await poolFactory.addCuratedPool(token1.address);
         await poolFactory.addCuratedPool(token2.address);
         await poolFactory.addCuratedPool(token3.address);
@@ -329,6 +312,20 @@ async function createSyntheticBNB() {
         await synthTKN2.approve(synthVault.address, _.BN2Str(500000 * _.one), { from: acc0 })
         await synthTKN2.approve(synthVault.address, _.BN2Str(500000 * _.one), { from: acc1 });
         await synthTKN2.approve(synthVault.address, _.BN2Str(500000 * _.one), { from: acc2 })
+    })
+    it("It should Create Synthetic SPARTA ", async () => {
+        var _synth =  await synthFactory.createSynth.call(sparta.address);
+        await synthFactory.createSynth(sparta.address);
+        synthSPARTA = await SYNTH.at(_synth)
+        let synth = await synthFactory.getSynth(sparta.address);
+        let result = await synthFactory.isSynth(synth);
+        assert.equal(result, true);
+        await synthSPARTA.approve(router.address, _.BN2Str(500000 * _.one), { from: acc0 })
+        await synthSPARTA.approve(router.address, _.BN2Str(500000 * _.one), { from: acc1 });
+        await synthSPARTA.approve(router.address, _.BN2Str(500000 * _.one), { from: acc2 })
+        await synthSPARTA.approve(synthVault.address, _.BN2Str(500000 * _.one), { from: acc0 })
+        await synthSPARTA.approve(synthVault.address, _.BN2Str(500000 * _.one), { from: acc1 });
+        await synthSPARTA.approve(synthVault.address, _.BN2Str(500000 * _.one), { from: acc2 })
     })
     it("It should Create Synthetic DAI ", async () => {
         var _synth =  await synthFactory.createSynth.call(token3.address);
@@ -373,29 +370,14 @@ async function createSyntheticBNB() {
         await synthTKN5.approve(synthVault.address, _.BN2Str(500000 * _.one), { from: acc2 })
     })
 }
-async function swapLayer1ToSynth(acc, x) {
-    it("Swap SPARTA to BNB-SPS ", async () => {
-        let synthOUT = synthBNB.address;
-        let tokenIN = sparta.address
-        await router.swapAssetToSynth(x,tokenIN,synthOUT,{from:acc});
-    })
-    it("Swap BNB to TKN2-SPS ", async () => {
-        let synthOUT = synthTKN2.address;
+async function swapAssetToBaseSynth(acc, x) {
+    it("Swap BNB to SPARTA-SPS ", async () => {
         let tokenIN = _.BNB
-        await router.swapAssetToSynth(x,tokenIN,synthOUT,{from:acc,value:x});
+        await router.swapAssetToBaseSynth(x,tokenIN,{from:acc,value:x});
     })
-    it("Swap TKN1 to TKN3-SPS ", async () => {
-        let tokenIN = token1.address
-        let synthOUT = synthTKN3.address;
-        await router.swapAssetToSynth(x,tokenIN,synthOUT,{from:acc});
-    })
-    it("Swap SPARTA to TKN4-SPS ", async () => {
-        let synthOUT = synthTKN4.address;
-        await router.swapAssetToSynth(x,sparta.address,synthOUT,{from:acc});
-    })
-    it("Swap SPARTA to TKN5-SPS ", async () => {
-        let synthOUT = synthTKN5.address;
-        await router.swapAssetToSynth(x,sparta.address,synthOUT,{from:acc});
+    it("Swap SPARTA to SPARTA-SPS ", async () => {
+        let tokenIN = sparta.address
+        await router.swapAssetToBaseSynth(x,tokenIN,{from:acc});
     })
 }
 async function swapSynthToLayer1(acc, x) {

@@ -9,6 +9,7 @@ import "./iROUTER.sol";
 import "./iSYNTH.sol"; 
 import "./iSYNTHFACTORY.sol"; 
 import "./iBEP677.sol"; 
+import "hardhat/console.sol";
 
 contract Pool is iBEP20 {  
 
@@ -35,11 +36,15 @@ contract Pool is iBEP20 {
     event AddLiquidity(address indexed member, uint inputBase, uint inputToken, uint unitsIssued);
     event RemoveLiquidity(address indexed member, uint outputBase, uint outputToken, uint unitsClaimed);
     event Swapped(address indexed tokenFrom, address indexed tokenTo,address indexed recipient, uint inputAmount, uint outputAmount, uint fee);
-    event MintSynth( address indexed member,address indexed base,uint256 baseAmount,address indexed token,uint256 synthAmount);
-    event BurnSynth(address indexed member, address indexed base, uint256 baseAmount, address indexed token, uint256 synthAmount);
+    event MintSynth( address indexed member, uint256 synthMinted,address indexed synth);
+    event BurnSynth(address indexed member, uint256 synthBurnt, address indexed synth);
 
     function _DAO() internal view returns(iDAO) {
          return iBASE(BASE).DAO();
+    }
+    modifier onlyRouter() {
+        require(msg.sender == _DAO().ROUTER());
+        _;
     }
 
     constructor (address _base, address _token) {
@@ -157,7 +162,7 @@ contract Pool is iBEP20 {
     }
 
     //ADD for member
-    function addForMember(address member) public returns(uint liquidityUnits){
+    function addForMember(address member) public returns (uint liquidityUnits){
         uint256 _actualInputBase = _getAddedBaseAmount();
         uint256 _actualInputToken = _getAddedTokenAmount();
         liquidityUnits = iUTILS(_DAO().UTILS()).calcLiquidityUnits(_actualInputBase, baseAmount, _actualInputToken, tokenAmount, totalSupply);
@@ -191,7 +196,7 @@ contract Pool is iBEP20 {
         return (outputAmount, fee);
     }
     //SWAPTO
-    function swapTo(address token, address member) public payable returns (uint outputAmount, uint fee) {
+    function swapTo(address token, address member) public payable  returns (uint outputAmount, uint fee) {
         require((token == BASE || token == TOKEN), "Must be BASE or TOKEN");
         address _fromToken; uint _amount;
         if(token == BASE){
@@ -208,35 +213,104 @@ contract Pool is iBEP20 {
         return (outputAmount, fee);
     }
 
-    //MINTSYNTH
-    function mintSynth(address synthOut, address member) external returns(uint outputAmount, uint fee) {
+    //MINTTOKENSYNTH
+    function mintTokenSynth(bool fromBASE, address member) external returns(uint output, uint fee) {
+        address synthOut = iSYNTHFACTORY(_DAO().SYNTHFACTORY()).getSynth(TOKEN);
+        uint _liquidityUnits; uint256 _actualInput;
         require(iSYNTHFACTORY(_DAO().SYNTHFACTORY()).isSynth(synthOut) == true, "!synth");
-        uint256 _actualInputBase = _getAddedBaseAmount();
-        uint output = iUTILS(_DAO().UTILS()).calcSwapOutput(_actualInputBase, baseAmount, tokenAmount); 
-        uint _liquidityUnits = iUTILS(_DAO().UTILS()).calcLiquidityUnitsAsym(_actualInputBase, address(this));
-        _incrementPoolBalances(_actualInputBase, 0);
-        uint _fee = iUTILS(_DAO().UTILS()).calcSwapFee(_actualInputBase, baseAmount, tokenAmount);
-        fee = iUTILS(_DAO().UTILS()).calcSpotValueInBase(TOKEN,_fee );
+        if(fromBASE){
+             _actualInput = _getAddedBaseAmount();
+             output = iUTILS(_DAO().UTILS()).calcSwapOutput(_actualInput, baseAmount, tokenAmount); 
+             _liquidityUnits = iUTILS(_DAO().UTILS()).calcLiquidityUnitsAsym(_actualInput, BASE, address(this));
+            _incrementPoolBalances(_actualInput, 0);
+            uint _fee = iUTILS(_DAO().UTILS()).calcSwapFee(_actualInput, baseAmount, tokenAmount);
+            fee = iUTILS(_DAO().UTILS()).calcSpotValueInBase(TOKEN,_fee );
+        }else{
+            _actualInput = _getAddedTokenAmount();
+             output = iUTILS(_DAO().UTILS()).calcSwapOutput(_actualInput, tokenAmount, tokenAmount); 
+             _liquidityUnits = iUTILS(_DAO().UTILS()).calcLiquidityUnitsAsym(_actualInput, TOKEN, address(this)); 
+            _incrementPoolBalances(0, _actualInput);
+            uint _fee = iUTILS(_DAO().UTILS()).calcSwapFee(_actualInput, tokenAmount, tokenAmount);
+            fee = iUTILS(_DAO().UTILS()).calcSpotValueInBase(TOKEN,_fee );
+        }
         _mint(synthOut, _liquidityUnits); 
         iSYNTH(synthOut).mintSynth(member, output); //mintSynth to member  
         _addPoolMetrics(fee);
-        emit MintSynth(member, BASE, _actualInputBase, TOKEN, outputAmount); // Mint Synth Event
+        emit MintSynth(member, output, synthOut); // Mint Synth Event
       return (output, fee);
     }
-    
-    //BURNSYNTH
-    function burnSynth(address synthIN, address member) external returns(uint outputAmount, uint fee) {
-       require(iSYNTHFACTORY(_DAO().SYNTHFACTORY()).isSynth(synthIN) == true, "!synth");
-        uint _actualInputSynth = iBEP20(synthIN).balanceOf(address(this));
-        uint outputBase = iUTILS(_DAO().UTILS()).calcSwapOutput(_actualInputSynth, tokenAmount, baseAmount); 
-        fee = iUTILS(_DAO().UTILS()).calcSwapFee(_actualInputSynth, tokenAmount, baseAmount);
-        iBEP20(synthIN).transfer(synthIN, _actualInputSynth);
-        iSYNTH(synthIN).burnSynth(); //redeem Synth
-        _decrementPoolBalances(outputBase, 0);
-        iBEP20(BASE).transfer(member, outputBase);
+
+    //MINTBASESYNTH
+    function mintBaseSynth(bool fromBASE, address member) external returns(uint output, uint fee) {
+       address synthOut = iSYNTHFACTORY(_DAO().SYNTHFACTORY()).getSynth(BASE);
+        uint _liquidityUnits; uint256 _actualInput;
+        require(iSYNTHFACTORY(_DAO().SYNTHFACTORY()).isSynth(synthOut) == true, "!synth");
+        if(fromBASE){
+             _actualInput = _getAddedBaseAmount();
+             output = iUTILS(_DAO().UTILS()).calcSwapOutput(_actualInput, baseAmount, baseAmount);
+             _liquidityUnits = iUTILS(_DAO().UTILS()).calcLiquidityUnitsAsym(_actualInput,BASE, address(this));
+            _incrementPoolBalances(_actualInput, 0);
+            fee = iUTILS(_DAO().UTILS()).calcSwapFee(_actualInput, baseAmount, baseAmount);
+        }else{
+            _actualInput = _getAddedTokenAmount();
+             output = iUTILS(_DAO().UTILS()).calcSwapOutput(_actualInput, tokenAmount, baseAmount); 
+             _liquidityUnits = iUTILS(_DAO().UTILS()).calcLiquidityUnitsAsym(_actualInput, TOKEN, address(this));
+            _incrementPoolBalances(0, _actualInput);
+            fee = iUTILS(_DAO().UTILS()).calcSwapFee(_actualInput, tokenAmount, baseAmount);
+        }
+        _mint(synthOut, _liquidityUnits); 
+        iSYNTH(synthOut).mintSynth(member, output); //mintSynth to member  
         _addPoolMetrics(fee);
-        emit BurnSynth(member, BASE, outputBase, TOKEN, _actualInputSynth); // Burn Synth Event
-      return (outputBase, fee);
+        emit MintSynth(member, output, synthOut); // Mint Synth Event
+      return (output, fee);
+    }
+   
+    //BURNSYNTH
+    function burnBaseSynth(bool toBase, address member) external returns(uint output, uint fee) {
+        address synthIn = iSYNTHFACTORY(_DAO().SYNTHFACTORY()).getSynth(BASE);
+       require(iSYNTHFACTORY(_DAO().SYNTHFACTORY()).isSynth(synthIn) == true, "!synth");
+       uint _actualInputSynth = iBEP20(synthIn).balanceOf(address(this));
+       iBEP20(synthIn).transfer(synthIn, _actualInputSynth);
+       iSYNTH(synthIn).burnSynth(); //redeem Synth
+       if(toBase){
+            output = iUTILS(_DAO().UTILS()).calcSwapOutput(_actualInputSynth, baseAmount, baseAmount);
+             fee = iUTILS(_DAO().UTILS()).calcSwapFee(_actualInputSynth, baseAmount, baseAmount);
+             _decrementPoolBalances(output, 0);
+             iBEP20(BASE).transfer(member, output);
+       }else{
+            output = iUTILS(_DAO().UTILS()).calcSwapOutput(_actualInputSynth, baseAmount, tokenAmount); 
+             uint _fee = iUTILS(_DAO().UTILS()).calcSwapFee(_actualInputSynth, baseAmount, tokenAmount);
+            fee = iUTILS(_DAO().UTILS()).calcSpotValueInBase(TOKEN,_fee);
+            _decrementPoolBalances(0, output);
+            iBEP20(TOKEN).transfer(member, output);
+       }
+        _addPoolMetrics(fee);
+        emit BurnSynth(member, _actualInputSynth, synthIn); // Burn Synth Event
+      return (output, fee);
+    }
+
+     //BURNSYNTH
+    function burnTokenSynth(bool toBase, address member) external returns(uint output, uint fee) {
+        address synthIn = iSYNTHFACTORY(_DAO().SYNTHFACTORY()).getSynth(TOKEN);
+       require(iSYNTHFACTORY(_DAO().SYNTHFACTORY()).isSynth(synthIn) == true, "!synth");
+       uint _actualInputSynth = iBEP20(synthIn).balanceOf(address(this));
+       iBEP20(synthIn).transfer(synthIn, _actualInputSynth);
+       iSYNTH(synthIn).burnSynth(); //redeem Synth
+       if(toBase){
+            output = iUTILS(_DAO().UTILS()).calcSwapOutput(_actualInputSynth, tokenAmount, baseAmount);
+             fee = iUTILS(_DAO().UTILS()).calcSwapFee(_actualInputSynth, tokenAmount, baseAmount);
+             _decrementPoolBalances(output, 0);
+             iBEP20(BASE).transfer(member, output);
+       }else{
+            output = iUTILS(_DAO().UTILS()).calcSwapOutput(_actualInputSynth, tokenAmount, tokenAmount); 
+             uint _fee = iUTILS(_DAO().UTILS()).calcSwapFee(_actualInputSynth, tokenAmount, tokenAmount);
+            fee = iUTILS(_DAO().UTILS()).calcSpotValueInBase(TOKEN,_fee);
+            _decrementPoolBalances(0, output);
+            iBEP20(TOKEN).transfer(member, output);
+       }
+        _addPoolMetrics(fee);
+        emit BurnSynth(member, _actualInputSynth, synthIn); // Burn Synth Event
+      return (output, fee);
     }
 
     //=======================================INTERNAL MATHS======================================//

@@ -15,6 +15,7 @@ interface iUTILS {
     function calcSpotValueInBase(address, uint) external view returns (uint);
     function calcSpotValueIn(address, uint) external view returns (uint);
     function calcPart(uint, uint) external pure returns (uint);
-    function calcLiquidityUnitsAsym(uint, address)external pure returns (uint);
+    function calcLiquidityUnitsAsym(uint,address, address)external pure returns (uint);
     function calcActualSynthUnits(uint amount, address synth) external view returns (uint);
+    function getDeepestPool() external view returns (address );
 }

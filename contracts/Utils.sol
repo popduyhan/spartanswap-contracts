@@ -5,7 +5,7 @@ import "./iPOOLFACTORY.sol";
 import "./iPOOL.sol";
 import "./iSYNTH.sol";
 import "./iBEP20.sol";
-
+import "hardhat/console.sol"; 
 
 
 contract Utils {
@@ -52,6 +52,23 @@ contract Utils {
         return iPOOLFACTORY(_DAO().POOLFACTORY()).getPool(token);
     }
 
+    function getDeepestPool() external view returns (address pool){
+        uint count = iPOOLFACTORY(_DAO().POOLFACTORY()).poolCount();
+        uint yD = 0;
+        for(uint i = 0; i< count; i++){
+             address pooli = iPOOLFACTORY(_DAO().POOLFACTORY()).getPoolArray(i);
+             if(iPOOLFACTORY(_DAO().POOLFACTORY()).isCuratedPool(pooli)){
+                  uint iD = iPOOL(pooli).baseAmount();
+                if(iD > yD){
+                   yD = iD;
+                   pool = pooli;
+                }
+             }
+            
+        }
+       return pool;
+    }
+
     //====================================CORE-MATH====================================//
 
      function getFeeOnTransfer(uint256 totalSupply, uint256 maxSupply) external pure returns (uint256) {
@@ -88,6 +105,7 @@ contract Utils {
             return _units * slipAdjustment / one;  // Divide by 10**18
         }
     }
+    
     function getSlipAdustment(uint b, uint B, uint t, uint T) public view returns (uint slipAdjustment){
         // slipAdjustment = (1 - ABS((B t - b T)/((2 b + B) (t + T))))
         // 1 - ABS(part1 - part2)/(part3 * part4))
@@ -120,15 +138,15 @@ contract Utils {
 
     function  calcSwapOutput(uint x, uint X, uint Y) public pure returns (uint output){
         // y = (x * X * Y )/(x + X)^2
-        uint numerator = x * (X * (Y));
-        uint denominator = (x + (X)) * (x + (X));
+        uint numerator = x * (X * Y);
+        uint denominator = (x + X) * (x + X);
         return numerator / (denominator);
     }
 
     function  calcSwapFee(uint x, uint X, uint Y) public pure returns (uint output){
         // y = (x * x * Y) / (x + X)^2
-        uint numerator = x * (x * (Y));
-        uint denominator = (x + (X)) * (x + (X));
+        uint numerator = x * (x * Y);
+        uint denominator = (x + X) * (x + X);
         return numerator / (denominator);
     }
 
@@ -141,11 +159,16 @@ contract Utils {
     }
 
     //synthUnits += (P b)/(2 (b + B))
-     function calcLiquidityUnitsAsym(uint amount, address pool) public view returns (uint units){
-        uint baseAmount = iPOOL(pool).baseAmount();
+     function calcLiquidityUnitsAsym(uint amount,address token, address pool) public view returns (uint units){
+        uint amountAsset;
+        if(token == BASE){
+            amountAsset = iPOOL(pool).baseAmount();
+        }else{
+            amountAsset = iPOOL(pool).tokenAmount();
+        }
         uint totalSupply = iBEP20(pool).totalSupply();
         uint two = 2;
-         return (totalSupply * amount) / (two * (amount + baseAmount));
+         return (totalSupply * amount) / (two * (amount + amountAsset));
      }
 
     //====================================PRICING====================================//

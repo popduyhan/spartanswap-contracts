@@ -164,8 +164,8 @@ contract Synth is iBEP20 {
          mapSynth_LPBalance[msg.sender] -= _amountUnits;
          mapSynth_LPDebt[msg.sender] -= _syntheticAmount;
          if(_amountUnits > 0){
-         _burn(address(this), _syntheticAmount); 
-         Pool(msg.sender).burn(_amountUnits);
+            _burn(address(this), _syntheticAmount); 
+            Pool(msg.sender).burn(_amountUnits);
          }
         return true;
     }
@@ -176,7 +176,7 @@ contract Synth is iBEP20 {
         if(baseValueLP > baseValueSynth){
             uint premium = baseValueLP - baseValueSynth;
             if(premium > 10**18){
-            uint premiumLP = iUTILS(_DAO().UTILS()).calcLiquidityUnitsAsym(premium, pool);
+            uint premiumLP = iUTILS(_DAO().UTILS()).calcLiquidityUnitsAsym(premium, BASE,pool);
             mapSynth_LPBalance[pool] -= premiumLP;
             Pool(pool).burn(premiumLP);
             }

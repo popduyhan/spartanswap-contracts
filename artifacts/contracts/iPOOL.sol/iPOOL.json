@@ -58,9 +58,9 @@
     {
       "inputs": [
         {
-          "internalType": "address",
+          "internalType": "bool",
           "name": "",
-          "type": "address"
+          "type": "bool"
         },
         {
           "internalType": "address",
@@ -68,7 +68,36 @@
           "type": "address"
         }
       ],
-      "name": "mintSynth",
+      "name": "mintBaseSynth",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "mintTokenSynth",
       "outputs": [
         {
           "internalType": "uint256",
